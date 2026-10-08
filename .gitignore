@@ -1,0 +1,9 @@
+nimcache/
+*.out
+*.exe
+*.a
+bin/
+nim_docfmt
+src/nim_docfmt
+tests/t_docfmt
+.tmp/
