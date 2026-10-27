@@ -7,3 +7,4 @@ nim_docfmt
 src/nim_docfmt
 tests/t_docfmt
 .tmp/
+justfile.local
