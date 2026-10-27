@@ -6,21 +6,21 @@ const
 
 type
   CommentKind* = enum
-    ckLine        ## Regular line comment: `# ...`
-    ckDocLine     ## Doc line comment: `## ...`
-    ckBlock       ## Block comment: `#[ ... ]#`
-    ckDocBlock    ## Doc block comment: `##[ ... ]##`
+    ckLine ## Regular line comment: `# ...`
+    ckDocLine ## Doc line comment: `## ...`
+    ckBlock ## Block comment: `#[ ... ]#`
+    ckDocBlock ## Doc block comment: `##[ ... ]##`
 
   SpanKind* = enum
-    skCode        ## Raw Nim source code (untouched)
-    skComment     ## Comment span to be formatted
+    skCode ## Raw Nim source code (untouched)
+    skComment ## Comment span to be formatted
 
   SourceSpan* = object
     kind*: SpanKind
     text*: string
     commentKind*: CommentKind
-    indent*: string       ## Leading indentation for line comments
-    prefix*: string       ## e.g. "#", "##", "#[", "##["
+    indent*: string ## Leading indentation for line comments
+    prefix*: string ## e.g. "#", "##", "#[", "##["
 
   FormatConfig* = object
     maxWidth*: int
@@ -45,12 +45,12 @@ proc scanSource*(src: string): seq[SourceSpan] =
 
   while i < n:
     # 1. Triple-quoted string: """..."""
-    if i + 2 < n and src[i] == '"' and src[i+1] == '"' and src[i+2] == '"':
-      codeBuf.add(src[i .. i+2])
+    if i + 2 < n and src[i] == '"' and src[i + 1] == '"' and src[i + 2] == '"':
+      codeBuf.add(src[i .. i + 2])
       i += 3
       while i < n:
-        if i + 2 < n and src[i] == '"' and src[i+1] == '"' and src[i+2] == '"':
-          codeBuf.add(src[i .. i+2])
+        if i + 2 < n and src[i] == '"' and src[i + 1] == '"' and src[i + 2] == '"':
+          codeBuf.add(src[i .. i + 2])
           i += 3
           break
         else:
@@ -66,7 +66,7 @@ proc scanSource*(src: string): seq[SourceSpan] =
       i += 1
       while i < n:
         if src[i] == '\\' and i + 1 < n:
-          codeBuf.add(src[i .. i+1])
+          codeBuf.add(src[i .. i + 1])
           i += 2
         elif src[i] == '"':
           codeBuf.add(src[i])
@@ -86,7 +86,7 @@ proc scanSource*(src: string): seq[SourceSpan] =
       i += 1
       while i < n:
         if src[i] == '\\' and i + 1 < n:
-          codeBuf.add(src[i .. i+1])
+          codeBuf.add(src[i .. i + 1])
           i += 2
         elif src[i] == '\'':
           codeBuf.add(src[i])
@@ -100,48 +100,54 @@ proc scanSource*(src: string): seq[SourceSpan] =
       continue
 
     # 4. Block comments: #[ ... ]# or ##[ ... ]##
-    if i + 2 < n and src[i] == '#' and src[i+1] == '#' and src[i+2] == '[':
+    if i + 2 < n and src[i] == '#' and src[i + 1] == '#' and src[i + 2] == '[':
       # Doc block comment: ##[
       flushCode()
       let start = i
       var depth = 1
       i += 3
       while i < n and depth > 0:
-        if i + 2 < n and src[i] == '#' and src[i+1] == '#' and src[i+2] == '[':
+        if i + 2 < n and src[i] == '#' and src[i + 1] == '#' and src[i + 2] == '[':
           depth += 1
           i += 3
-        elif i + 2 < n and src[i] == ']' and src[i+1] == '#' and src[i+2] == '#':
+        elif i + 2 < n and src[i] == ']' and src[i + 1] == '#' and src[i + 2] == '#':
           depth -= 1
           i += 3
         else:
           i += 1
       let rawText = src[start ..< i]
-      result.add(SourceSpan(kind: skComment, text: rawText, commentKind: ckDocBlock, prefix: "##["))
+      result.add(
+        SourceSpan(
+          kind: skComment, text: rawText, commentKind: ckDocBlock, prefix: "##["
+        )
+      )
       continue
 
-    if i + 1 < n and src[i] == '#' and src[i+1] == '[':
+    if i + 1 < n and src[i] == '#' and src[i + 1] == '[':
       # Regular block comment: #[
       flushCode()
       let start = i
       var depth = 1
       i += 2
       while i < n and depth > 0:
-        if i + 1 < n and src[i] == '#' and src[i+1] == '[':
+        if i + 1 < n and src[i] == '#' and src[i + 1] == '[':
           depth += 1
           i += 2
-        elif i + 1 < n and src[i] == ']' and src[i+1] == '#':
+        elif i + 1 < n and src[i] == ']' and src[i + 1] == '#':
           depth -= 1
           i += 2
         else:
           i += 1
       let rawText = src[start ..< i]
-      result.add(SourceSpan(kind: skComment, text: rawText, commentKind: ckBlock, prefix: "#["))
+      result.add(
+        SourceSpan(kind: skComment, text: rawText, commentKind: ckBlock, prefix: "#[")
+      )
       continue
 
     # 5. Line comments: ## ... or # ...
     if src[i] == '#':
       flushCode()
-      let isDoc = (i + 1 < n and src[i+1] == '#')
+      let isDoc = (i + 1 < n and src[i + 1] == '#')
       let prefix = if isDoc: "##" else: "#"
       let start = i
       # Determine leading indentation on current line
@@ -159,13 +165,15 @@ proc scanSource*(src: string): seq[SourceSpan] =
       while i < n and src[i] notin {'\r', '\n'}:
         i += 1
       let rawText = src[start ..< i]
-      result.add(SourceSpan(
-        kind: skComment,
-        text: rawText,
-        commentKind: if isDoc: ckDocLine else: ckLine,
-        prefix: prefix,
-        indent: if isOnlyWhitespace: linePrefix else: ""
-      ))
+      result.add(
+        SourceSpan(
+          kind: skComment,
+          text: rawText,
+          commentKind: if isDoc: ckDocLine else: ckLine,
+          prefix: prefix,
+          indent: if isOnlyWhitespace: linePrefix else: "",
+        )
+      )
       continue
 
     # Standard code character
@@ -184,15 +192,15 @@ proc isCodeFence(line: string): bool =
 
 proc isHeading(line: string): bool =
   let trimmed = line.strip()
-  trimmed.startsWith("# ") or trimmed.startsWith("## ") or
-  trimmed.startsWith("### ") or trimmed.startsWith("#### ") or
-  trimmed.startsWith("##### ") or trimmed.startsWith("###### ")
+  trimmed.startsWith("# ") or trimmed.startsWith("## ") or trimmed.startsWith("### ") or
+    trimmed.startsWith("#### ") or trimmed.startsWith("##### ") or
+    trimmed.startsWith("###### ")
 
 proc isBanner(line: string): bool =
   let trimmed = line.strip()
   if trimmed.len >= 3 and (
-    trimmed.startsWith("===") or trimmed.startsWith("---") or
-    trimmed.startsWith("***") or trimmed.startsWith("___")
+    trimmed.startsWith("===") or trimmed.startsWith("---") or trimmed.startsWith("***") or
+    trimmed.startsWith("___")
   ):
     return true
   if trimmed.startsWith("<!--") or trimmed.endsWith("-->"):
@@ -207,9 +215,10 @@ proc isListItem(line: string, markerLen: var int, isOrdered: var bool): bool =
     return true
   # Check ordered list: "1. ", "10. "
   var idx = 0
-  while idx < trimmed.len and trimmed[idx] in {'0'..'9'}:
+  while idx < trimmed.len and trimmed[idx] in {'0' .. '9'}:
     idx += 1
-  if idx > 0 and idx + 1 < trimmed.len and trimmed[idx] == '.' and trimmed[idx+1] == ' ':
+  if idx > 0 and idx + 1 < trimmed.len and trimmed[idx] == '.' and
+      trimmed[idx + 1] == ' ':
     markerLen = idx + 2
     isOrdered = true
     return true
@@ -223,10 +232,7 @@ proc isTable(line: string): bool =
   trimmed.startsWith("|") and trimmed.endsWith("|")
 
 proc formatMarkdownParagraph(
-    para: string,
-    maxWidth: int,
-    baseIndent: string,
-    hangingIndent: string = ""
+    para: string, maxWidth: int, baseIndent: string, hangingIndent: string = ""
 ): seq[string] =
   ## Reflows an ordinary markdown prose paragraph into lines of maximum `maxWidth`.
   result = @[]
@@ -241,7 +247,11 @@ proc formatMarkdownParagraph(
     let spaceNeeded = if isFirst: 0 else: 1
     if not isFirst and curLine.len + spaceNeeded + word.len > maxWidth:
       result.add(curLine.strip(leading = false, trailing = true))
-      curLine = if hangingIndent.len > 0: hangingIndent & word else: baseIndent & word
+      curLine =
+        if hangingIndent.len > 0:
+          hangingIndent & word
+        else:
+          baseIndent & word
       isFirst = false
     else:
       if not isFirst:
@@ -252,7 +262,9 @@ proc formatMarkdownParagraph(
   if curLine.strip().len > 0:
     result.add(curLine.strip(leading = false, trailing = true))
 
-proc formatLinesMarkdown*(lines: seq[string], maxWidth: int, prefix: string): seq[string] =
+proc formatLinesMarkdown*(
+    lines: seq[string], maxWidth: int, prefix: string
+): seq[string] =
   ## Formats a sequence of raw comment interior lines into cleanly formatted markdown lines.
   result = @[]
   var i = 0
@@ -284,7 +296,8 @@ proc formatLinesMarkdown*(lines: seq[string], maxWidth: int, prefix: string): se
     # Markdown elements that must NOT be wrapped
     var markerLen = 0
     var isOrdered = false
-    if isHeading(trimmed) or isBanner(trimmed) or isTable(trimmed) or isBlockquote(trimmed):
+    if isHeading(trimmed) or isBanner(trimmed) or isTable(trimmed) or
+        isBlockquote(trimmed):
       result.add(rawLine.strip(leading = false, trailing = true))
       i += 1
       continue
@@ -303,12 +316,13 @@ proc formatLinesMarkdown*(lines: seq[string], maxWidth: int, prefix: string): se
         var dummyLen = 0
         var dummyOrd = false
         if nextTrimmed.len == 0 or isListItem(nextTrimmed, dummyLen, dummyOrd) or
-           isHeading(nextTrimmed) or isBanner(nextTrimmed) or isCodeFence(nextTrimmed):
+            isHeading(nextTrimmed) or isBanner(nextTrimmed) or isCodeFence(nextTrimmed):
           break
         listPara.add(" " & nextTrimmed)
         i += 1
 
-      let formattedList = formatMarkdownParagraph(listPara, maxWidth, indentStr, hangStr)
+      let formattedList =
+        formatMarkdownParagraph(listPara, maxWidth, indentStr, hangStr)
       for fl in formattedList:
         result.add(fl)
       continue
@@ -323,8 +337,8 @@ proc formatLinesMarkdown*(lines: seq[string], maxWidth: int, prefix: string): se
       var dummyLen = 0
       var dummyOrd = false
       if nextTrimmed.len == 0 or isListItem(nextTrimmed, dummyLen, dummyOrd) or
-         isHeading(nextTrimmed) or isBanner(nextTrimmed) or isCodeFence(nextTrimmed) or
-         isTable(nextTrimmed) or isBlockquote(nextTrimmed):
+          isHeading(nextTrimmed) or isBanner(nextTrimmed) or isCodeFence(nextTrimmed) or
+          isTable(nextTrimmed) or isBlockquote(nextTrimmed):
         break
       para.add(" " & nextTrimmed)
       i += 1
@@ -399,10 +413,7 @@ proc isNewlineWithIndent(codeText: string, expectedIndent: string): bool =
   false
 
 proc formatContiguousLineComments(
-    spans: seq[SourceSpan],
-    startIdx: int,
-    consumedCount: var int,
-    config: FormatConfig
+    spans: seq[SourceSpan], startIdx: int, consumedCount: var int, config: FormatConfig
 ): string =
   let targetSpan = spans[startIdx]
   let prefix = targetSpan.prefix
@@ -412,18 +423,28 @@ proc formatContiguousLineComments(
   var j = startIdx
 
   while j < spans.len:
-    if spans[j].kind == skComment and spans[j].commentKind == targetSpan.commentKind and spans[j].indent == indent:
+    if spans[j].kind == skComment and spans[j].commentKind == targetSpan.commentKind and
+        spans[j].indent == indent:
       let pLen = prefix.len
       let text = spans[j].text
-      let after = if text.len > pLen: text[pLen .. ^1] else: ""
-      rawLines.add(if after.startsWith(" "): after[1 .. ^1] else: after)
+      let after =
+        if text.len > pLen:
+          text[pLen .. ^1]
+        else:
+          ""
+      rawLines.add(
+        if after.startsWith(" "):
+          after[1 .. ^1]
+        else:
+          after
+      )
 
       # Check if next span is newline + indent followed by another matching comment
-      if j + 2 < spans.len and spans[j+1].kind == skCode and
-         isNewlineWithIndent(spans[j+1].text, indent) and
-         spans[j+2].kind == skComment and
-         spans[j+2].commentKind == targetSpan.commentKind and
-         spans[j+2].indent == indent:
+      if j + 2 < spans.len and spans[j + 1].kind == skCode and
+          isNewlineWithIndent(spans[j + 1].text, indent) and
+          spans[j + 2].kind == skComment and
+          spans[j + 2].commentKind == targetSpan.commentKind and
+          spans[j + 2].indent == indent:
         j += 2
       else:
         break
@@ -462,7 +483,9 @@ proc formatSource*(src: string, config: FormatConfig): string =
 
     # Comment span handling
     let isDoc = span.commentKind in {ckDocLine, ckDocBlock}
-    let shouldFormat = (isDoc and config.formatDocComments) or (not isDoc and config.formatRegularComments)
+    let shouldFormat =
+      (isDoc and config.formatDocComments) or
+      (not isDoc and config.formatRegularComments)
 
     if not shouldFormat:
       result.add(span.text)
@@ -504,7 +527,7 @@ proc main*() =
     formatDocComments: true,
     checkOnly: false,
     diffOnly: false,
-    writeInPlace: false
+    writeInPlace: false,
   )
 
   var targetPaths: seq[string] = @[]
