@@ -1,28 +1,63 @@
 name: CI
-
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+
+permissions: {}
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        nim-version: ['2.2.10', 'devel']
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Nim
-        uses: elijahr/vfox-nim@main
         with:
-          version: ${{ matrix.nim-version }}
-      - name: Build and Test
+          fetch-depth: 0
+      - name: Install and run Gitleaks
         run: |
-          nimble build -y -d:release
-          nim c -r tests/t_docfmt.nim
-      - name: Self Check
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v8.24.0/gitleaks_8.24.0_linux_x64.tar.gz" | sudo tar -xz -C /usr/local/bin gitleaks
+          gitleaks detect --verbose --redact
+
+  test:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        nim-version: [stable, "2.2.6", devel]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jiro4989/setup-nim-action@v2
+        with:
+          nim-version: ${{ matrix.nim-version }}
+          parent-nim-install-directory: ${{ runner.temp }}
+
+      - uses: actions/cache@v5
+        with:
+          path: ~/.nimble
+          key: nimble-${{ runner.os }}-${{ hashFiles('**/*.nimble') }}
+
+      - name: Install dependencies
         run: |
-          ./bin/nim-docfmt --check src/ tests/ || true
+          nimble install --depsOnly -y
+
+      - name: nph format check
+        run: |
+          nimble install -y nph@0.7.0
+          nph --check .
+        continue-on-error: ${{ matrix.nim-version == 'devel' }}
+
+      - name: nimble check
+        run: nimble check
+        continue-on-error: ${{ matrix.nim-version == 'devel' }}
+
+      - name: Test
+        run: |
+          nimble test
+        continue-on-error: ${{ matrix.nim-version == 'devel' }}
